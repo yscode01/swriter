@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Folder, File, Plus, Save } from 'lucide-react';
+import { Folder, File, Plus, Save, Edit } from 'lucide-react';
+
+interface ProjectMetadata {
+  status: 'Not Started' | 'In Progress' | 'Completed';
+  wordCountGoal: number;
+}
 
 interface Project {
   id: number;
@@ -7,21 +12,22 @@ interface Project {
   type: 'folder' | 'file';
   children: Project[];
   content?: string;
+  metadata: ProjectMetadata;
 }
 
 const initialProjects: Project[] = [
   { id: 1, name: 'My Novel', type: 'folder', children: [
     { id: 2, name: 'Manuscript', type: 'folder', children: [
-      { id: 3, name: 'Chapter 1', type: 'file', children: [], content: '' },
-      { id: 4, name: 'Chapter 2', type: 'file', children: [], content: '' },
-    ]},
-    { id: 5, name: 'Characters', type: 'folder', children: [] },
-    { id: 6, name: 'Settings', type: 'folder', children: [] },
-  ]},
+      { id: 3, name: 'Chapter 1', type: 'file', children: [], content: '', metadata: { status: 'Not Started', wordCountGoal: 2000 } },
+      { id: 4, name: 'Chapter 2', type: 'file', children: [], content: '', metadata: { status: 'Not Started', wordCountGoal: 2000 } },
+    ], metadata: { status: 'In Progress', wordCountGoal: 50000 } },
+    { id: 5, name: 'Characters', type: 'folder', children: [], metadata: { status: 'Not Started', wordCountGoal: 0 } },
+    { id: 6, name: 'Settings', type: 'folder', children: [], metadata: { status: 'Not Started', wordCountGoal: 0 } },
+  ], metadata: { status: 'In Progress', wordCountGoal: 80000 } },
   { id: 7, name: 'Short Stories', type: 'folder', children: [
-    { id: 8, name: 'Story 1', type: 'file', children: [], content: '' },
-    { id: 9, name: 'Story 2', type: 'file', children: [], content: '' },
-  ]},
+    { id: 8, name: 'Story 1', type: 'file', children: [], content: '', metadata: { status: 'Not Started', wordCountGoal: 5000 } },
+    { id: 9, name: 'Story 2', type: 'file', children: [], content: '', metadata: { status: 'Not Started', wordCountGoal: 5000 } },
+  ], metadata: { status: 'Not Started', wordCountGoal: 10000 } },
 ];
 
 function App() {
@@ -30,6 +36,7 @@ function App() {
   const [editorContent, setEditorContent] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [isCreatingNewProject, setIsCreatingNewProject] = useState(false);
+  const [isEditingMetadata, setIsEditingMetadata] = useState(false);
 
   useEffect(() => {
     if (selectedProject) {
@@ -42,6 +49,7 @@ function App() {
 
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project);
+    setIsEditingMetadata(false);
   };
 
   const handleCreateNewProject = () => {
@@ -54,6 +62,7 @@ function App() {
       name: newProjectName,
       type: 'folder',
       children: [],
+      metadata: { status: 'Not Started', wordCountGoal: 0 },
     };
     setProjects([...projects, newProject]);
     setIsCreatingNewProject(false);
@@ -78,6 +87,26 @@ function App() {
     });
   };
 
+  const handleUpdateMetadata = (newMetadata: ProjectMetadata) => {
+    if (selectedProject) {
+      const updatedProjects = updateProjectMetadata(projects, selectedProject.id, newMetadata);
+      setProjects(updatedProjects);
+      setSelectedProject({ ...selectedProject, metadata: newMetadata });
+      setIsEditingMetadata(false);
+    }
+  };
+
+  const updateProjectMetadata = (projects: Project[], id: number, metadata: ProjectMetadata): Project[] => {
+    return projects.map(project => {
+      if (project.id === id) {
+        return { ...project, metadata };
+      } else if (project.children.length > 0) {
+        return { ...project, children: updateProjectMetadata(project.children, id, metadata) };
+      }
+      return project;
+    });
+  };
+
   const renderProjects = (projects: Project[]) => {
     return projects.map((project) => (
       <div key={project.id}>
@@ -91,6 +120,7 @@ function App() {
             <File size={24} />
           )}
           <span className="ml-2">{project.name}</span>
+          <span className="ml-2 text-sm text-gray-500">({project.metadata.status})</span>
         </div>
         {project.children.length > 0 && (
           <div className="ml-4">
@@ -99,6 +129,37 @@ function App() {
         )}
       </div>
     ));
+  };
+
+  const renderMetadataEditor = () => {
+    if (!selectedProject) return null;
+
+    return (
+      <div className="mt-4 p-4 bg-gray-100 rounded">
+        <h3 className="text-lg font-semibold mb-2">Metadata</h3>
+        <div className="flex items-center mb-2">
+          <label className="w-32">Status:</label>
+          <select
+            value={selectedProject.metadata.status}
+            onChange={(e) => handleUpdateMetadata({ ...selectedProject.metadata, status: e.target.value as ProjectMetadata['status'] })}
+            className="p-2 border rounded"
+          >
+            <option value="Not Started">Not Started</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Completed">Completed</option>
+          </select>
+        </div>
+        <div className="flex items-center">
+          <label className="w-32">Word Count Goal:</label>
+          <input
+            type="number"
+            value={selectedProject.metadata.wordCountGoal}
+            onChange={(e) => handleUpdateMetadata({ ...selectedProject.metadata, wordCountGoal: parseInt(e.target.value) })}
+            className="p-2 border rounded"
+          />
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -137,11 +198,21 @@ function App() {
         <div className="flex-1 p-4 overflow-y-auto">
           {selectedProject && (
             <div>
-              <h2 className="text-lg font-bold mb-4">{selectedProject.name}</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold">{selectedProject.name}</h2>
+                <button
+                  className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
+                  onClick={() => setIsEditingMetadata(!isEditingMetadata)}
+                >
+                  <Edit size={24} className="mr-2" />
+                  {isEditingMetadata ? 'Hide Metadata' : 'Edit Metadata'}
+                </button>
+              </div>
+              {isEditingMetadata && renderMetadataEditor()}
               {selectedProject.type === 'file' && (
                 <div>
                   <textarea
-                    className="w-full h-[calc(100vh-200px)] p-2 border border-gray-300 rounded"
+                    className="w-full h-[calc(100vh-300px)] p-2 border border-gray-300 rounded"
                     value={editorContent}
                     onChange={(e) => setEditorContent(e.target.value)}
                   />
