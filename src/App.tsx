@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Folder, File, Plus, Save, Edit } from 'lucide-react';
+import { EditorState, convertToRaw, convertFromRaw } from 'draft-js';
+import { Editor } from 'react-draft-wysiwyg';
+import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
 
 interface ProjectMetadata {
   status: 'Not Started' | 'In Progress' | 'Completed';
@@ -14,6 +17,7 @@ interface Project {
   content?: string;
   metadata: ProjectMetadata;
 }
+
 
 const initialProjects: Project[] = [
   { id: 1, name: 'My Novel', type: 'folder', children: [
@@ -33,7 +37,7 @@ const initialProjects: Project[] = [
 function App() {
   const [projects, setProjects] = useState(initialProjects);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [editorContent, setEditorContent] = useState('');
+  const [editorState, setEditorState] = useState(EditorState.createEmpty());
   const [newProjectName, setNewProjectName] = useState('');
   const [isCreatingNewProject, setIsCreatingNewProject] = useState(false);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
@@ -41,7 +45,17 @@ function App() {
   useEffect(() => {
     if (selectedProject) {
       document.title = selectedProject.name;
-      setEditorContent(selectedProject.content || '');
+      if (selectedProject.type === 'file' && selectedProject.content) {
+        try {
+          const contentState = convertFromRaw(JSON.parse(selectedProject.content));
+          setEditorState(EditorState.createWithContent(contentState));
+        } catch (error) {
+          console.error('Error parsing content:', error);
+          setEditorState(EditorState.createEmpty());
+        }
+      } else {
+        setEditorState(EditorState.createEmpty());
+      }
     } else {
       document.title = 'Scrivener-like App';
     }
@@ -71,7 +85,9 @@ function App() {
 
   const handleSaveContent = () => {
     if (selectedProject && selectedProject.type === 'file') {
-      const updatedProjects = updateProjectContent(projects, selectedProject.id, editorContent);
+      const contentState = editorState.getCurrentContent();
+      const rawContentState = convertToRaw(contentState);
+      const updatedProjects = updateProjectContent(projects, selectedProject.id, JSON.stringify(rawContentState));
       setProjects(updatedProjects);
     }
   };
@@ -211,10 +227,14 @@ function App() {
               {isEditingMetadata && renderMetadataEditor()}
               {selectedProject.type === 'file' && (
                 <div>
-                  <textarea
-                    className="w-full h-[calc(100vh-300px)] p-2 border border-gray-300 rounded"
-                    value={editorContent}
-                    onChange={(e) => setEditorContent(e.target.value)}
+                  <Editor
+                    editorState={editorState}
+                    onEditorStateChange={setEditorState}
+                    wrapperClassName="border border-gray-300 rounded"
+                    editorClassName="p-2 min-h-[calc(100vh-300px)]"
+                    toolbar={{
+                      options: ['inline', 'blockType', 'fontSize', 'fontFamily', 'list', 'textAlign', 'colorPicker', 'link', 'embedded', 'emoji', 'image', 'remove', 'history'],
+                    }}
                   />
                   <button
                     className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
