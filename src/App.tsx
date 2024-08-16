@@ -83,6 +83,17 @@ const useProjectsWithStorage = () => {
   return [projects, setProjects] as const;
 };
 
+const handleSaveAllProjects = () => {
+  saveProjectsToLocalStorage(projects);
+  alert('All projects saved successfully!');
+};
+
+const handleLoadProjects = () => {
+  const loadedProjects = loadProjectsFromLocalStorage();
+  setProjects(loadedProjects);
+  alert('Projects loaded successfully!');
+};
+
 function App() {
     const [projects, setProjects] = useProjectsWithStorage();
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -159,6 +170,8 @@ function App() {
         const updatedProjects = updateProjectContent(projects, selectedProject.id, content, updatedMetadata);
         setProjects(updatedProjects);
         setSelectedProject({...selectedProject, content, metadata: updatedMetadata});
+        saveProjectsToLocalStorage(updatedProjects);
+        alert('Project saved successfully!');
       }
     };
 
@@ -299,16 +312,32 @@ function App() {
 
     return (
       <div className="h-screen flex flex-col">
-        <nav className="bg-gray-800 text-gray-100 p-4 flex justify-between">
-          <h1 className="text-lg font-bold">Scrivener-like App</h1>
-          <button
-            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-            onClick={handleCreateNewProject}
-          >
-            <Plus size={24} />
-            New Project
-          </button>
-        </nav>
+        <nav className="bg-gray-800 text-gray-100 p-4 flex justify-between items-center">
+  <h1 className="text-lg font-bold">Scrivener-like App</h1>
+  <div className="flex space-x-2">
+    <button
+      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={handleSaveAllProjects}
+    >
+      <Save size={20} className="mr-2" />
+      Save All
+    </button>
+    <button
+      className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={handleLoadProjects}
+    >
+      <File size={20} className="mr-2" />
+      Load Projects
+    </button>
+    <button
+      className="bg-purple-500 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={handleCreateNewProject}
+    >
+      <Plus size={20} className="mr-2" />
+      New Project
+    </button>
+  </div>
+</nav>
         <div className="flex flex-1 overflow-hidden">
           <div className="w-64 bg-gray-100 p-4 flex flex-col">
             {renderProjects(projects)}
@@ -334,15 +363,24 @@ function App() {
             {selectedProject && (
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-lg font-bold">{selectedProject.name}</h2>
-                  <button
-                    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
-                    onClick={() => setIsEditingMetadata(!isEditingMetadata)}
-                  >
-                    <Edit size={24} className="mr-2" />
-                    {isEditingMetadata ? 'Hide Metadata' : 'Edit Metadata'}
-                  </button>
-                </div>
+  <h2 className="text-lg font-bold">{selectedProject.name}</h2>
+  <div className="flex space-x-2">
+    <button
+      className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={handleSaveContent}
+    >
+      <Save size={24} className="mr-2" />
+      Save Project
+    </button>
+    <button
+      className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={() => setIsEditingMetadata(!isEditingMetadata)}
+    >
+      <Edit size={24} className="mr-2" />
+      {isEditingMetadata ? 'Hide Metadata' : 'Edit Metadata'}
+    </button>
+  </div>
+</div>
                 {isEditingMetadata && renderMetadataEditor()}
                 {selectedProject.type === 'file' && (
                   <div>
@@ -355,13 +393,6 @@ function App() {
                         options: ['inline', 'blockType', 'fontSize', 'fontFamily', 'list', 'textAlign', 'colorPicker', 'link', 'embedded', 'emoji', 'image', 'remove', 'history'],
                       }}
                     />
-                    <button
-                      className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center"
-                      onClick={handleSaveContent}
-                    >
-                      <Save size={24} className="mr-2" />
-                      Save Changes
-                    </button>
                   </div>
                 )}
               </div>
