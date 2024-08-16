@@ -83,17 +83,6 @@ const useProjectsWithStorage = () => {
   return [projects, setProjects] as const;
 };
 
-const handleSaveAllProjects = () => {
-  saveProjectsToLocalStorage(projects);
-  alert('All projects saved successfully!');
-};
-
-const handleLoadProjects = () => {
-  const loadedProjects = loadProjectsFromLocalStorage();
-  setProjects(loadedProjects);
-  alert('Projects loaded successfully!');
-};
-
 function App() {
     const [projects, setProjects] = useProjectsWithStorage();
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -101,6 +90,44 @@ function App() {
     const [newProjectName, setNewProjectName] = useState('');
     const [isCreatingNewProject, setIsCreatingNewProject] = useState(false);
     const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+
+    const handleSaveAllProjects = () => {
+      saveProjectsToLocalStorage(projects);
+      alert('All projects saved successfully!');
+    };
+
+    const handleLoadProjects = () => {
+      const loadedProjects = loadProjectsFromLocalStorage();
+      setProjects(loadedProjects);
+      alert('Projects loaded successfully!');
+    };
+
+    const handleExportProjects = () => {
+      const projectsJson = JSON.stringify(projects);
+      const blob = new Blob([projectsJson], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'scrivener_projects.json';
+      link.click();
+      URL.revokeObjectURL(url);
+    };
+
+    const handleImportProjects = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const content = e.target?.result;
+          if (typeof content === 'string') {
+            const importedProjects = JSON.parse(content);
+            setProjects(importedProjects);
+            alert('Projects imported successfully!');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
 
     useEffect(() => {
       if (selectedProject) {
@@ -336,6 +363,27 @@ function App() {
       <Plus size={20} className="mr-2" />
       New Project
     </button>
+    <button
+      className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={handleExportProjects}
+    >
+      <Save size={20} className="mr-2" />
+      Export
+    </button>
+    <input
+      type="file"
+      id="import-projects"
+      className="hidden"
+      onChange={handleImportProjects}
+      accept=".json"
+    />
+    <label
+      htmlFor="import-projects"
+      className="bg-orange-500 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded flex items-center cursor-pointer"
+    >
+      <File size={20} className="mr-2" />
+      Import
+    </label>
   </div>
 </nav>
         <div className="flex flex-1 overflow-hidden">
