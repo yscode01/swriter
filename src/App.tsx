@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, File, Plus, Save, Edit } from 'lucide-react';
+import { Folder, File, Plus, Save, Edit, Trash } from 'lucide-react';
 import { EditorState, convertToRaw, convertFromRaw } from 'draft-js';
 import { Editor } from 'react-draft-wysiwyg';
 import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
@@ -45,28 +45,7 @@ const loadProjectsFromLocalStorage = (): Project[] => {
 
 const getInitialProjects = (): Project[] => {
   const savedProjects = loadProjectsFromLocalStorage();
-  if (savedProjects.length > 0) {
-    return savedProjects;
-  }
-
-  return [{
-    id: 1,
-    name: 'My First Project',
-    type: 'project',
-    children: [],
-    metadata: {
-      status: 'Not Started',
-      wordCountGoal: 0,
-      actualWordCount: 0,
-      lastModified: new Date().toISOString(),
-      creationDate: new Date().toISOString(),
-      completionPercentage: 0,
-      tags: [],
-      author: '',
-      estimatedReadingTime: 0,
-      version: '1.0'
-    }
-  }];
+  return savedProjects;
 };
 
 const useProjectsWithStorage = () => {
@@ -90,6 +69,12 @@ function App() {
     const [newProjectName, setNewProjectName] = useState('');
     const [isCreatingNewProject, setIsCreatingNewProject] = useState(false);
     const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+    const [editingId, setEditingId] = useState<number | null>(null);
+
+    const clearLocalStorage = () => {
+      localStorage.removeItem('projects');
+      setProjects([]);
+    };
 
     const handleSaveAllProjects = () => {
       saveProjectsToLocalStorage(projects);
@@ -302,15 +287,47 @@ function App() {
       });
     };
 
+    const handleRename = (id: number, newName: string) => {
+      const updatedProjects = updateProjectName(projects, id, newName);
+      setProjects(updatedProjects);
+    };
+
+    const updateProjectName = (projects: Project[], id: number, newName: string): Project[] => {
+      return projects.map(project => {
+        if (project.id === id) {
+          return { ...project, name: newName };
+        } else if (project.children.length > 0) {
+          return { ...project, children: updateProjectName(project.children, id, newName) };
+        }
+        return project;
+      });
+    };
+
     const renderProjects = (projects: Project[]) => {
       return projects.map((project) => (
         <div key={project.id}>
           <div className="flex items-center py-2 px-4 hover:bg-gray-200 cursor-pointer">
-            <div onClick={() => handleSelectProject(project)}>
-              {project.type === 'project' ? <Folder size={24} /> : <File size={24} />}
-              <span className="ml-2">{project.name}</span>
-              <span className="ml-2 text-sm text-gray-500">({project.metadata.status})</span>
-            </div>
+            {editingId === project.id ? (
+              <input
+                type="text"
+                value={project.name}
+                onChange={(e) => handleRename(project.id, e.target.value)}
+                onBlur={() => setEditingId(null)}
+                autoFocus
+              />
+            ) : (
+              <div onClick={() => handleSelectProject(project)}>
+                {project.type === 'project' ? <Folder size={24} /> : <File size={24} />}
+                <span className="ml-2">{project.name}</span>
+                <span className="ml-2 text-sm text-gray-500">({project.metadata.status})</span>
+              </div>
+            )}
+            <button
+              className="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm"
+              onClick={() => setEditingId(project.id)}
+            >
+              Rename
+            </button>
             <button
               className="ml-auto bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm"
               onClick={() => project.type === 'project' ? handleDeleteProject(project.id) : handleDeleteChapter(project.id, project.id)}
@@ -460,6 +477,13 @@ function App() {
       <File size={20} className="mr-2" />
       Import
     </label>
+    <button
+  className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center"
+  onClick={clearLocalStorage}
+>
+  <Trash size={20} className="mr-2" />
+  Clear All
+</button>
   </div>
 </nav>
         <div className="flex flex-1 overflow-hidden">
