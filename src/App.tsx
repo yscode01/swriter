@@ -20,7 +20,7 @@ interface ProjectMetadata {
 interface Project {
   id: number;
   name: string;
-  type: 'folder' | 'file';
+  type: 'project' | 'chapter';
   children: Project[];
   content?: string;
   metadata: ProjectMetadata;
@@ -52,7 +52,7 @@ const getInitialProjects = (): Project[] => {
   return [{
     id: 1,
     name: 'My First Project',
-    type: 'folder',
+    type: 'project',
     children: [],
     metadata: {
       status: 'Not Started',
@@ -132,7 +132,7 @@ function App() {
     useEffect(() => {
       if (selectedProject) {
         document.title = selectedProject.name;
-        if (selectedProject.type === 'file' && selectedProject.content) {
+        if (selectedProject.type === 'chapter' && selectedProject.content) {
           try {
             const contentState = convertFromRaw(JSON.parse(selectedProject.content));
             setEditorState(EditorState.createWithContent(contentState));
@@ -154,14 +154,83 @@ function App() {
     };
 
     const handleCreateNewProject = () => {
-      setIsCreatingNewProject(true);
+      const newProject: Project = {
+        id: Date.now(),
+        name: newProjectName,
+        type: 'project',
+        children: [],
+        metadata: {
+          status: 'Not Started',
+          wordCountGoal: 0,
+          actualWordCount: 0,
+          lastModified: new Date().toISOString(),
+          creationDate: new Date().toISOString(),
+          completionPercentage: 0,
+          tags: [],
+          author: '',
+          estimatedReadingTime: 0,
+          version: '1.0'
+        },
+      };
+      setProjects([...projects, newProject]);
+      setIsCreatingNewProject(false);
+      setNewProjectName('');
+    };
+
+    const handleCreateNewChapter = (projectId: number) => {
+      const newChapter: Project = {
+        id: Date.now(),
+        name: 'New Chapter',
+        type: 'chapter',
+        children: [],
+        content: '',
+        metadata: {
+          status: 'Not Started',
+          wordCountGoal: 0,
+          actualWordCount: 0,
+          lastModified: new Date().toISOString(),
+          creationDate: new Date().toISOString(),
+          completionPercentage: 0,
+          tags: [],
+          author: '',
+          estimatedReadingTime: 0,
+          version: '1.0'
+        },
+      };
+      const updatedProjects = addChapterToProject(projects, projectId, newChapter);
+      setProjects(updatedProjects);
+    };
+
+    const addChapterToProject = (projects: Project[], projectId: number, newChapter: Project): Project[] => {
+      return projects.map(project => {
+        if (project.id === projectId) {
+          return { ...project, children: [...project.children, newChapter] };
+        }
+        return project;
+      });
+    };
+
+    const handleDeleteProject = (projectId: number) => {
+      setProjects(projects.filter(project => project.id !== projectId));
+    };
+
+    const handleDeleteChapter = (projectId: number, chapterId: number) => {
+      setProjects(projects.map(project => {
+        if (project.id === projectId) {
+          return {
+            ...project,
+            children: project.children.filter(chapter => chapter.id !== chapterId)
+          };
+        }
+        return project;
+      }));
     };
 
     const handleSaveNewProject = () => {
       const newProject: Project = {
         id: Date.now(),
         name: newProjectName,
-        type: 'folder',
+        type: 'project',
         children: [],
         metadata: {
           status: 'Not Started',
@@ -182,7 +251,7 @@ function App() {
     };
 
     const handleSaveContent = () => {
-      if (selectedProject && selectedProject.type === 'file') {
+      if (selectedProject && selectedProject.type === 'chapter') {
         const contentState = editorState.getCurrentContent();
         const rawContentState = convertToRaw(contentState);
         const content = JSON.stringify(rawContentState);
@@ -198,7 +267,7 @@ function App() {
         setProjects(updatedProjects);
         setSelectedProject({...selectedProject, content, metadata: updatedMetadata});
         saveProjectsToLocalStorage(updatedProjects);
-        alert('Project saved successfully!');
+        alert('Chapter saved successfully!');
       }
     };
 
@@ -236,21 +305,28 @@ function App() {
     const renderProjects = (projects: Project[]) => {
       return projects.map((project) => (
         <div key={project.id}>
-          <div
-            className="flex items-center py-2 px-4 hover:bg-gray-200 cursor-pointer"
-            onClick={() => handleSelectProject(project)}
-          >
-            {project.type === 'folder' ? (
-              <Folder size={24} />
-            ) : (
-              <File size={24} />
-            )}
-            <span className="ml-2">{project.name}</span>
-            <span className="ml-2 text-sm text-gray-500">({project.metadata.status})</span>
+          <div className="flex items-center py-2 px-4 hover:bg-gray-200 cursor-pointer">
+            <div onClick={() => handleSelectProject(project)}>
+              {project.type === 'project' ? <Folder size={24} /> : <File size={24} />}
+              <span className="ml-2">{project.name}</span>
+              <span className="ml-2 text-sm text-gray-500">({project.metadata.status})</span>
+            </div>
+            <button
+              className="ml-auto bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm"
+              onClick={() => project.type === 'project' ? handleDeleteProject(project.id) : handleDeleteChapter(project.id, project.id)}
+            >
+              Delete
+            </button>
           </div>
-          {project.children.length > 0 && (
+          {project.type === 'project' && (
             <div className="ml-4">
               {renderProjects(project.children)}
+              <button
+                className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm"
+                onClick={() => handleCreateNewChapter(project.id)}
+              >
+                New Chapter
+              </button>
             </div>
           )}
         </div>
@@ -430,7 +506,7 @@ function App() {
   </div>
 </div>
                 {isEditingMetadata && renderMetadataEditor()}
-                {selectedProject.type === 'file' && (
+                {selectedProject.type === 'chapter' && (
                   <div>
                     <Editor
                       editorState={editorState}
