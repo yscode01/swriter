@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, File, Plus, Save, Edit, Trash } from 'lucide-react';
+import { Folder, File, Plus, Save, Edit, Trash, Moon, Sun, FileText } from 'lucide-react';
 import { EditorState, convertToRaw, convertFromRaw } from 'draft-js';
 import { Editor } from 'react-draft-wysiwyg';
 import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
@@ -333,6 +333,34 @@ function App() {
       };
     }, [handleSaveContent]);
 
+    const saveNewVersion = () => {
+      if (selectedProject && selectedProject.type === 'chapter') {
+        const newVersion = {
+          content: JSON.stringify(convertToRaw(editorState.getCurrentContent())),
+          timestamp: new Date().toISOString(),
+        };
+        const updatedProject = {
+          ...selectedProject,
+          versions: [...(selectedProject.versions || []), newVersion],
+        };
+        // Update the project in your state
+        setProjects(projects.map(p => p.id === selectedProject.id ? updatedProject : p));
+        alert('New version saved!');
+      }
+    };
+
+    const changeTheme = (theme: 'light' | 'dark') => {
+      if (theme === 'dark') {
+        document.documentElement.style.setProperty('--primary-color', '#6b46c1');
+        document.documentElement.style.setProperty('--background-color', '#2d3748');
+        document.documentElement.style.setProperty('--text-color', '#ffffff');
+      } else {
+        document.documentElement.style.setProperty('--primary-color', '#3490dc');
+        document.documentElement.style.setProperty('--background-color', '#ffffff');
+        document.documentElement.style.setProperty('--text-color', '#333333');
+      }
+    };
+
     const exportToPDF = () => {
       if (selectedProject && selectedProject.type === 'chapter') {
         const doc = new jsPDF();
@@ -543,6 +571,34 @@ function App() {
   <Trash size={20} className="mr-2" />
   Clear All
 </button>
+<button
+      className="bg-indigo-500 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={saveNewVersion}
+    >
+      <Plus size={20} className="mr-2" />
+      New Version
+    </button>
+    <button
+      className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={() => changeTheme('dark')}
+    >
+      <Moon size={20} className="mr-2" />
+      Dark Theme
+    </button>
+    <button
+      className="bg-yellow-300 hover:bg-yellow-500 text-black font-bold py-2 px-4 rounded flex items-center"
+      onClick={() => changeTheme('light')}
+    >
+      <Sun size={20} className="mr-2" />
+      Light Theme
+    </button>
+    <button
+      className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded flex items-center"
+      onClick={exportToPDF}
+    >
+      <FileText size={20} className="mr-2" />
+      Export PDF
+    </button>
   </div>
 </nav>
         <div className="flex flex-1 overflow-hidden">
