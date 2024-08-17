@@ -36,3 +36,25 @@
     transform: rotate(360deg);
   }
 }
+
+:root {
+  --primary-color: #3490dc;
+  --secondary-color: #ffed4a;
+  --background-color: #ffffff;
+  --text-color: #333333;
+}
+
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.btn-secondary {
+  background-color: var(--secondary-color);
+  color: black;
+}

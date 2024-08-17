@@ -3,6 +3,9 @@ import { Folder, File, Plus, Save, Edit, Trash } from 'lucide-react';
 import { EditorState, convertToRaw, convertFromRaw } from 'draft-js';
 import { Editor } from 'react-draft-wysiwyg';
 import 'react-draft-wysiwyg/dist/react-draft-wysiwyg.css';
+import './App.css';
+import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided } from 'react-beautiful-dnd';
+import jsPDF from 'jspdf';
 
 interface ProjectMetadata {
   status: 'Not Started' | 'In Progress' | 'Completed';
@@ -71,6 +74,14 @@ function App() {
     const [isEditingMetadata, setIsEditingMetadata] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
 
+    const onDragEnd = (result: any) => {
+      if (!result.destination) return;
+      const items = Array.from(projects);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      setProjects(items);
+    };
+
     const clearLocalStorage = () => {
       localStorage.removeItem('projects');
       setProjects([]);
@@ -132,6 +143,8 @@ function App() {
         document.title = 'Scrivener-like App';
       }
     }, [selectedProject]);
+
+
 
     const handleSelectProject = (project: Project) => {
       setSelectedProject(project);
@@ -256,6 +269,8 @@ function App() {
       }
     };
 
+
+
     const updateProjectContent = (projects: Project[], id: number, content: string, metadata: ProjectMetadata): Project[] => {
       return projects.map(project => {
         if (project.id === id) {
@@ -303,57 +318,99 @@ function App() {
       });
     };
 
-    const renderProjects = (projects: Project[]) => {
-      return projects.map((project) => (
-        <div key={project.id}>
-          <div className="flex items-center py-2 px-4 hover:bg-gray-200 cursor-pointer">
-            {editingId === project.id ? (
-              <input
-                type="text"
-                value={project.name}
-                onChange={(e) => handleRename(project.id, e.target.value)}
-                onBlur={() => setEditingId(null)}
-                autoFocus
-              />
-            ) : (
-              <div onClick={() => handleSelectProject(project)}>
-                {project.type === 'project' ? <Folder size={24} /> : <File size={24} />}
-                <span className="ml-2">{project.name}</span>
-                <span className="ml-2 text-sm text-gray-500">({project.metadata.status})</span>
-              </div>
-            )}
-            <button
-              className="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm"
-              onClick={() => setEditingId(project.id)}
-            >
-              Rename
-            </button>
-            <button
-              className="ml-auto bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm"
-              onClick={() => project.type === 'project' ? handleDeleteProject(project.id) : handleDeleteChapter(project.id, project.id)}
-            >
-              Delete
-            </button>
-          </div>
-          {project.type === 'project' && (
-            <div className="ml-4">
-              {renderProjects(project.children)}
-              <button
-                className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm"
-                onClick={() => handleCreateNewChapter(project.id)}
-              >
-                New Chapter
-              </button>
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.ctrlKey && e.key === 's') {
+          e.preventDefault();
+          handleSaveContent();
+        }
+        // shortcuts here
+      };
+
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }, [handleSaveContent]);
+
+    const exportToPDF = () => {
+      if (selectedProject && selectedProject.type === 'chapter') {
+        const doc = new jsPDF();
+        doc.text(selectedProject.name, 10, 10);
+        doc.text(editorState.getCurrentContent().getPlainText(), 10, 20);
+        doc.save(`${selectedProject.name}.pdf`);
+      }
+    };
+
+    const renderProjects = (projects: Project[], level = 0) => {
+      return (
+        <Droppable droppableId={`projectList-${level}`} type={`level-${level}`}>
+          {(provided: DroppableProvided) => (
+            <div {...provided.droppableProps} ref={provided.innerRef}>
+              {projects.map((project, index) => (
+                <Draggable key={project.id} draggableId={project.id.toString()} index={index}>
+                  {(provided: DraggableProvided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                    >
+                      <div className="flex items-center py-2 px-4 hover:bg-gray-200 cursor-pointer">
+                        {editingId === project.id ? (
+                          <input
+                            type="text"
+                            value={project.name}
+                            onChange={(e) => handleRename(project.id, e.target.value)}
+                            onBlur={() => setEditingId(null)}
+                            autoFocus
+                          />
+                        ) : (
+                          <div onClick={() => handleSelectProject(project)}>
+                            {project.type === 'project' ? <Folder size={24} /> : <File size={24} />}
+                            <span className="ml-2">{project.name}</span>
+                            <span className="ml-2 text-sm text-gray-500">({project.metadata.status})</span>
+                          </div>
+                        )}
+                        <button
+                          className="ml-2 bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded text-sm"
+                          onClick={() => setEditingId(project.id)}
+                        >
+                          Rename
+                        </button>
+                        <button
+                          className="ml-auto bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded text-sm"
+                          onClick={() => project.type === 'project' ? handleDeleteProject(project.id) : handleDeleteChapter(project.id, project.id)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                      {project.type === 'project' && (
+                        <div className="ml-4">
+                          {renderProjects(project.children, level + 1)}
+                          <button
+                            className="mt-2 bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-2 rounded text-sm"
+                            onClick={() => handleCreateNewChapter(project.id)}
+                          >
+                            New Chapter
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+              {provided.placeholder}
             </div>
           )}
-        </div>
-      ));
+        </Droppable>
+      );
     };
 
     const renderMetadataEditor = () => {
       if (!selectedProject) return null;
 
       return (
+
         <div className="mt-4 p-4 bg-gray-100 rounded">
           <h3 className="text-lg font-semibold mb-2">Metadata</h3>
           <div className="grid grid-cols-2 gap-4">
@@ -427,12 +484,14 @@ function App() {
             </div>
           </div>
         </div>
-      );
-    };
 
-    return (
-      <div className="h-screen flex flex-col">
-        <nav className="bg-gray-800 text-gray-100 p-4 flex justify-between items-center">
+    );
+  };
+
+  return (
+    <DragDropContext onDragEnd={onDragEnd}>
+    <div className="h-screen flex flex-col">
+      <nav className="bg-gray-800 text-gray-100 p-4 flex justify-between items-center">
   <h1 className="text-lg font-bold">Scrivener-like App</h1>
   <div className="flex space-x-2">
     <button
@@ -533,14 +592,18 @@ function App() {
                 {selectedProject.type === 'chapter' && (
                   <div>
                     <Editor
-                      editorState={editorState}
-                      onEditorStateChange={setEditorState}
-                      wrapperClassName="border border-gray-300 rounded"
-                      editorClassName="p-2 min-h-[calc(100vh-300px)]"
-                      toolbar={{
-                        options: ['inline', 'blockType', 'fontSize', 'fontFamily', 'list', 'textAlign', 'colorPicker', 'link', 'embedded', 'emoji', 'image', 'remove', 'history'],
-                      }}
-                    />
+  editorState={editorState}
+  onEditorStateChange={setEditorState}
+  wrapperClassName="border border-gray-300 rounded"
+  editorClassName="p-2 min-h-[calc(100vh-300px)]"
+  toolbar={{
+    options: ['inline', 'blockType', 'fontSize', 'fontFamily', 'list', 'textAlign', 'colorPicker', 'link', 'embedded', 'emoji', 'image', 'remove', 'history'],
+    inline: { inDropdown: false, options: ['bold', 'italic', 'underline', 'strikethrough', 'monospace', 'superscript', 'subscript'] },
+    blockType: { inDropdown: true, options: ['Normal', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'Blockquote', 'Code'] },
+    fontSize: { options: [8, 9, 10, 11, 12, 14, 16, 18, 24, 30, 36, 48] },
+    fontFamily: { options: ['Arial', 'Georgia', 'Impact', 'Tahoma', 'Times New Roman', 'Verdana'] },
+  }}
+/>
                   </div>
                 )}
               </div>
@@ -548,6 +611,8 @@ function App() {
           </div>
         </div>
       </div>
+      </DragDropContext>
+
     );
   }
 
